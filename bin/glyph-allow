@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+usage(){ echo "usage: glyph-allow [--remove|--rebuild] <name>"; exit 1; }
+
+L=/etc/nginx/glyph_allow.list
+M=/etc/nginx/glyph_allow.map
+action="add"; name="${1-}"
+
+case "${1-}" in
+  --remove) action="remove"; shift; name="${1-}";;
+  --rebuild) action="rebuild";;
+esac
+
+[[ "$action" == "rebuild" ]] || [[ -n "${name-}" ]] || usage
+[[ "$action" == "rebuild" ]] || [[ "$name" =~ ^[a-z0-9_]+$ ]] || { echo "name must be [a-z0-9_]+"; exit 2; }
+
+sudo touch "$L"
+sudo chmod 644 "$L"
+
+if [[ "$action" == "add" ]]; then
+  p="/api/v1/g/${name}/"
+  if ! grep -qxF "$p" "$L"; then
+    echo "$p" | sudo tee -a "$L" >/dev/null
+  fi
+elif [[ "$action" == "remove" ]]; then
+  sudo sed -i "\|^/api/v1/g/${name}/$|d" "$L"
+fi
+
+# (re)generate map from list
+awk '
+BEGIN{print "# auto-generated from /etc/nginx/glyph_allow.list — do not edit"}
+/^[[:space:]]*#/||/^[[:space:]]*$/ {next}
+{gsub(/\r$/,""); printf("~^%s 1;\n",$0)}
+' "$L" | sudo tee "$M" >/dev/null
+
+# test + reload
+sudo nginx -t >/dev/null && sudo systemctl reload nginx
+echo "ok: map rebuilt from $L into $M"

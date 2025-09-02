@@ -1,0 +1,12 @@
+# secrets/certs (never commit)
+hostinger.env
+*.pem
+*.key
+etc/letsencrypt/
+
+# generated
+nginx/glyph_allow.map
+
+# logs / misc
+*.log
+.DS_Store

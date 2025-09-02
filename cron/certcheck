@@ -1,0 +1,1 @@
+15 4 * * * root /usr/local/bin/check_wildcard_expiry.sh | /usr/bin/logger -t certcheck
