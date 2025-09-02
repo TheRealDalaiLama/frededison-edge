@@ -1,0 +1,23 @@
+name: deploy
+on: { push: { branches: [main] } }
+jobs:
+  ship:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prep SSH
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf "%s" "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+          printf "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+      - name: Deploy (atomic)
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          DEST_ROOT: /srv/fred/www/frededison.net/public
+        run: |
+          SHA="${GITHUB_SHA}"
+          REL="/srv/fred/releases/frededison.net/$SHA"
+          ssh -i ~/.ssh/id_rsa $SSH_USER@$SSH_HOST "mkdir -p $REL"
+          rsync -az --delete ./ $SSH_USER@$SSH_HOST:$REL/
+          ssh -i ~/.ssh/id_rsa $SSH_USER@$SSH_HOST "ln -sfn $REL $DEST_ROOT/current && sudo systemctl reload nginx"
